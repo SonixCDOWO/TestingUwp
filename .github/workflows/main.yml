@@ -1,0 +1,30 @@
+name: build-dxilprobe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar (UWP x64)
+        run: >
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=10.0
+
+      - name: Compilar
+        run: cmake --build build --config Release
+
+      - name: Empaquetar y firmar MSIX
+        shell: powershell
+        run: ./package.ps1 -BuildDir build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DxilProbe
+          path: |
+            build/AppPackages/*.msix
+            build/AppPackages/*.cer
