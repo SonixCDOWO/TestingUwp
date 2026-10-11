@@ -1,7 +1,8 @@
-// DxilProbe - app UWP mínima (C++/CX). Ejecuta las pruebas de probe.cpp y muestra el resultado
+// DxilProbe - app UWP mínima (C++/WinRT). Ejecuta las pruebas de probe.cpp y muestra el resultado
 // en pantalla con Direct2D/DirectWrite. También escribe todo en LocalState\probe_log.txt.
 #define NOMINMAX
 #include <windows.h>
+#include <unknwn.h> // antes de los headers de winrt (interop COM)
 #include <d2d1_1.h>
 #include <d3d11_1.h>
 #include <dwrite.h>
@@ -12,12 +13,19 @@
 #include <string>
 #include <vector>
 
+#include <winrt/Windows.ApplicationModel.Activation.h>
+#include <winrt/Windows.ApplicationModel.Core.h>
+#include <winrt/Windows.ApplicationModel.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Graphics.Display.h>
+#include <winrt/Windows.Storage.h>
+#include <winrt/Windows.UI.Core.h>
+
 #include "probe.h"
 
-using namespace Platform;
-using namespace Windows::ApplicationModel::Core;
-using namespace Windows::Foundation;
-using namespace Windows::UI::Core;
+// Se califica todo con winrt:: (wrl/client.h declara un ::Windows parcial que causaría ambigüedad).
+using namespace winrt::Windows::ApplicationModel::Core;
+using namespace winrt::Windows::UI::Core;
 using Microsoft::WRL::ComPtr;
 
 namespace {
@@ -138,69 +146,61 @@ struct Gfx {
     }
 };
 
-} // namespace
+struct App : winrt::implements<App, IFrameworkViewSource, IFrameworkView> {
+    IFrameworkView CreateView() { return *this; }
 
-namespace DxilProbe {
-
-ref class App sealed : public IFrameworkView {
-public:
-    virtual void Initialize(CoreApplicationView^ view) {
-        view->Activated += ref new TypedEventHandler<CoreApplicationView^,
-            Windows::ApplicationModel::Activation::IActivatedEventArgs^>(
-            [](CoreApplicationView^, Windows::ApplicationModel::Activation::IActivatedEventArgs^) {
-                CoreWindow::GetForCurrentThread()->Activate();
-            });
+    void Initialize(CoreApplicationView const& view) {
+        view.Activated([](auto&&, auto&&) { CoreWindow::GetForCurrentThread().Activate(); });
     }
-    virtual void SetWindow(CoreWindow^ window) {
+
+    void SetWindow(CoreWindow const& window) {
         m_window = window;
-        window->Closed += ref new TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>(
-            [this](CoreWindow^, CoreWindowEventArgs^) { m_closed = true; });
+        window.Closed([this](auto&&, auto&&) { m_closed = true; });
     }
-    virtual void Load(String^) {}
-    virtual void Uninitialize() {}
 
-    virtual void Run() {
-        m_window->Activate();
-        m_window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
+    void Load(winrt::hstring const&) {}
+    void Uninitialize() {}
 
-        double scale = Windows::Graphics::Display::DisplayInformation::GetForCurrentView()->RawPixelsPerViewPixel;
-        UINT wpx = (UINT)(m_window->Bounds.Width * scale);
-        UINT hpx = (UINT)(m_window->Bounds.Height * scale);
+    void Run() {
+        m_window.Activate();
+        m_window.Dispatcher().ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
+
+        const double scale =
+            winrt::Windows::Graphics::Display::DisplayInformation::GetForCurrentView().RawPixelsPerViewPixel();
+        const auto bounds = m_window.Bounds();
+        const UINT wpx = (UINT)(bounds.Width * scale);
+        const UINT hpx = (UINT)(bounds.Height * scale);
 
         Gfx gfx;
-        bool gfx_ok = gfx.Init(reinterpret_cast<IUnknown*>(m_window), wpx, hpx);
+        const bool gfx_ok = gfx.Init(winrt::get_unknown(m_window), wpx, hpx);
 
         std::vector<Line> lines;
         lines.push_back({L"DxilProbe: ejecutando pruebas...", LV_TITLE});
         if (gfx_ok) gfx.Draw(lines);
 
         ProbeEnv env;
-        env.assets_dir = std::wstring(Windows::ApplicationModel::Package::Current->InstalledLocation->Path->Data()) + L"\\Assets";
-        env.state_dir = Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data();
+        env.assets_dir =
+            std::wstring(winrt::Windows::ApplicationModel::Package::Current().InstalledLocation().Path().c_str()) +
+            L"\\Assets";
+        env.state_dir = std::wstring(winrt::Windows::Storage::ApplicationData::Current().LocalFolder().Path().c_str());
         lines = RunProbes(env);
         if (!gfx_ok) lines.push_back({L"(no se pudo iniciar el dibujo en pantalla; mira probe_log.txt)", LV_WARN});
 
         while (!m_closed) {
-            m_window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
+            m_window.Dispatcher().ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
             if (gfx_ok) gfx.Draw(lines);
             else Sleep(100);
         }
     }
 
 private:
-    CoreWindow^ m_window;
+    CoreWindow m_window{nullptr};
     bool m_closed = false;
 };
 
-ref class AppSource sealed : IFrameworkViewSource {
-public:
-    virtual IFrameworkView^ CreateView() { return ref new App(); }
-};
+} // namespace
 
-} // namespace DxilProbe
-
-[Platform::MTAThread]
-int main(Platform::Array<Platform::String^>^) {
-    CoreApplication::Run(ref new DxilProbe::AppSource());
+int __stdcall wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
+    CoreApplication::Run(winrt::make<App>());
     return 0;
 }

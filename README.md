@@ -56,8 +56,9 @@ la prueba desde cero, desinstala y reinstala la app (se borra `LocalState`).
 ## Qué está verificado y qué no
 
 - ✅ `probe.cpp` y la parte de dibujo de `main.cpp` pasan una comprobación de sintaxis con mingw-w64.
-- ❌ **No he compilado ni ejecutado** el proyecto completo: la parte C++/CX, el CMake para
-  `WindowsStore`, el empaquetado y el workflow no se han probado. Es posible que haya que ajustar algo.
+- ❌ **No he compilado ni ejecutado** el proyecto completo: la parte C++/WinRT (clase `App` y `wWinMain`),
+  el CMake para `WindowsStore`, el empaquetado y el workflow no se han probado. Es posible que haya que ajustar algo.
+  (La primera versión usaba C++/CX y falló en CI porque `/ZW` no se activó; ahora usa C++/WinRT.)
 - ❓ El runner `windows-2022` de GitHub debería traer la carga de trabajo UWP; si el paso
   *Configurar* se queja de que falta, hay que instalarla en el workflow.
 - ❓ El empaquetado copia el método de `dist/uwp/package.ps1` de Azahar-UWP, pero con otro Publisher
