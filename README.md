@@ -25,8 +25,10 @@ que es lo que genera Mesa, o solo **DXBC (SM 5.1)**?
 
 Si prefieres compilar local (Windows 10/11 con Visual Studio 2022 y la carga de trabajo UWP):
 
+(Las comillas en los `-D...` son necesarias en PowerShell: sin ellas parte `10.0` en `10` y `.0`.)
+
 ```
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=10.0
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 "-DCMAKE_SYSTEM_NAME=WindowsStore" "-DCMAKE_SYSTEM_VERSION=10.0"
 cmake --build build --config Release
 powershell -ExecutionPolicy Bypass -File package.ps1 -BuildDir build
 ```

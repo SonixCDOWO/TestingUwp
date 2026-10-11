@@ -5,7 +5,7 @@ if(NOT WINDOWS_STORE)
     message(FATAL_ERROR
         "Este proyecto es UWP. Configura con:\n"
         "  cmake -S . -B build -G \"Visual Studio 17 2022\" -A x64 "
-        "-DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=10.0")
+        "\"-DCMAKE_SYSTEM_NAME=WindowsStore\" \"-DCMAKE_SYSTEM_VERSION=10.0\"")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
